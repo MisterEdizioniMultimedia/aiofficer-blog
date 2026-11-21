@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cerca nel sito :: AI Officer ::</title>
+<meta name="description" content="Ricerca nelle puntate della NewsLetter AI Officer.">
+<link rel="canonical" href="https://www.aiofficer.blog/cerca/">
+<meta property="og:title" content="Cerca nel sito :: AI Officer ::">
+<meta property="og:description" content="Ricerca nelle puntate della NewsLetter AI Officer.">
+<meta property="og:url" content="https://www.aiofficer.blog/cerca/">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#ccecf9">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<a class="skip" href="#contenuto">Vai al contenuto</a>
+<header class="top"><div class="wrap top__in">
+  <a class="brand" href="../" aria-label="AI Officer, pagina principale">
+    <img class="brand__badge" src="../assets/bollo.webp" width="440" height="440" alt="">
+    <span><span class="brand__name"><span class="dots">::</span> AI OFFICER <span class="dots">::</span></span>
+    <span class="brand__sub">Interferenze semantiche sull'AI nella Comunicazione Pubblica</span></span>
+  </a>
+</div></header>
+<nav class="menu" aria-label="Menu principale"><div class="wrap menu__in">
+  <a class="pill" href="../indice/">Indice puntate</a>
+  <a class="pill" href="https://www.linkedin.com/newsletters/ai-officer-newsletter-7402362836275875841" rel="noopener" target="_blank">Iscriviti su LinkedIn</a>
+  <a class="pill" href="https://aiofficer.substack.com" rel="noopener" target="_blank">Iscriviti su Substack</a>
+  <form class="find" action="../cerca/" method="get" role="search">
+    <label class="sr" for="q">Cerca nel sito</label>
+    <input id="q" name="q" type="search" placeholder="Cerca nel sito" autocomplete="off">
+    <button type="submit">Cerca</button>
+  </form>
+</div></nav>
+<div class="wrap layout">
+<main id="contenuto" class="main">
+<h1 class="pagetitle">Cerca nel sito</h1>
+<form class="form" action="./" method="get" role="search">
+  <label for="q2">Parole da cercare</label>
+  <input id="q2" name="q" type="search" autocomplete="off">
+  <button class="pill pill--dark" type="submit">Cerca</button>
+</form>
+<p class="count" id="esito" aria-live="polite"></p>
+<ol class="rows" id="risultati"></ol>
+<script>
+(function(){
+  var map={'à':'a','á':'a','â':'a','ä':'a','è':'e','é':'e','ê':'e','ë':'e','ì':'i','í':'i','î':'i','ï':'i','ò':'o','ó':'o','ô':'o','ö':'o','ù':'u','ú':'u','û':'u','ü':'u','’':"'",'‘':"'"};
+  function norm(s){s=s.toLowerCase();var o='';for(var i=0;i<s.length;i++){o+=map[s[i]]||s[i];}return o;}
+  function esc(s){return s.replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function rx(t){return new RegExp('(^|[^a-z0-9])('+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','g');}
+  function hits(text,t){var r=rx(t),c=0,first=-1,m;while((m=r.exec(text))){c++;if(first<0)first=m.index+m[1].length;}return {c:c,first:first};}
+  var q=(new URLSearchParams(location.search).get('q')||'').trim();
+  document.getElementById('q2').value=q; var top=document.getElementById('q'); if(top) top.value=q;
+  var esito=document.getElementById('esito'), out=document.getElementById('risultati');
+  if(!q){esito.textContent='Scrivi una o più parole: cerco nei titoli, nei sommari e nei testi delle puntate.';return;}
+  var terms=norm(q).split(/\s+/).filter(function(t){return t.length>1;});
+  if(!terms.length){esito.textContent='Scrivi almeno una parola di due lettere.';return;}
+  var phrase=terms.length>1?terms.join(' '):null;
+  esito.textContent='Ricerca in corso…';
+  fetch('../assets/ricerca.json').then(function(r){return r.json();}).then(function(data){
+    var res=[];
+    data.forEach(function(p){
+      var T=norm(p.t),S=norm(p.s),X=norm(p.x),score=0,ok=true,pos=-1;
+      terms.forEach(function(t){
+        var a=hits(T,t).c,b=hits(S,t).c,h=hits(X,t);
+        if(!a&&!b&&!h.c){ok=false;}
+        score+=(a?20:0)+(b?8:0)+Math.min(h.c,10);
+        if(pos<0&&h.first>-1)pos=h.first;
+      });
+      if(!ok)return;
+      if(phrase){var ph=hits(T+' '+S+' '+X,phrase);if(ph.c){score+=50+Math.min(ph.c,10)*3;var px=hits(X,phrase).first;if(px>-1)pos=px;}}
+      var a=Math.max(0,pos-110),b=Math.min(p.x.length,pos+190);if(a>0){var sp=p.x.indexOf(' ',a);if(sp>-1&&sp<pos)a=sp+1;}var sp2=p.x.lastIndexOf(' ',b);if(b<p.x.length&&sp2>pos)b=sp2;
+      var snip=pos>-1?(a>0?'… ':'')+p.x.slice(a,b)+(b<p.x.length?' …':''):'';
+      res.push({p:p,score:score,snip:snip});
+    });
+    res.sort(function(a,b){return b.score-a.score||b.p.n-a.p.n;});
+    esito.textContent=res.length?(res.length===1?'1 puntata trovata':res.length+' puntate trovate')+' per «'+q+'».':'Nessuna puntata contiene «'+q+'».';
+    out.innerHTML=res.map(function(r){
+      var s=esc(r.snip),ns=norm(s),marks=[];
+      (phrase?[phrase].concat(terms):terms).forEach(function(t){var re=rx(t),m;while((m=re.exec(ns))){var st=m.index+m[1].length;marks.push([st,st+t.length]);}});
+      marks.sort(function(x,y){return x[0]-y[0];});
+      var o='',i=0;marks.forEach(function(m){if(m[0]<i)return;o+=s.slice(i,m[0])+'<mark>'+s.slice(m[0],m[1])+'</mark>';i=m[1];});
+      s=o+s.slice(i);
+      return '<li><a class="row" href="../'+r.p.u+'"><img src="../'+r.p.i+'" width="640" height="360" alt="" loading="lazy"><div><p class="label">NewsLetter <b>#'+r.p.n+'</b></p><h2 class="row__t">'+esc(r.p.t)+'</h2>'+(r.p.s?'<p class="row__s">'+esc(r.p.s)+'</p>':'')+(s?'<p class="row__x">'+s+'</p>':'')+'</div></a></li>';
+    }).join('');
+  }).catch(function(){esito.textContent='La ricerca non è disponibile in questo momento.';});
+})();
+</script>
+</main>
+<aside class="side" aria-label="Informazioni sulla NewsLetter">
+  <div class="side__block side__about">
+    <p class="side__by">NewsLetter di <b>Martin Enrico Iglesias</b>, giornalista professionista e comunicatore pubblico, studioso delle dinamiche comunicative e dell'incarico AI&nbsp;Officer nella PA.</p>
+    <p>Iniziativa editoriale sul web, la NewsLetter vuole definire l'incarico di AI&nbsp;Officer nella pubblica amministrazione e aprire un dialogo intorno a esso. L'incarico riunisce più professionalità, provenienti dall'area informatica e digitale e dall'area umanistica, giornalistica e della comunicazione.</p>
+    <a class="pill pill--dark" href="../chi-sono/">Chi sono</a>
+  </div>
+  <div class="side__block side__note">
+    <h2 class="side__h">:: Nota sulla produzione ::</h2>
+    <p>Testi co-prodotti con sistemi di AIgen, con verifica delle fonti e revisione di merito prima della pubblicazione. Responsabilità editoriale: Martin Enrico Iglesias, giornalista professionista ODG. Immagini e didascalie generate con AI text-to-image.</p>
+  </div>
+  <div class="side__block side__contact">
+    <h2 class="side__h">:: Contatti ::</h2>
+    <p class="mail">contact<span class="at"></span>misteredizioni.it</p>
+    <a class="pill pill--dark" href="../contatti/">Scrivi un messaggio</a>
+  </div>
+</aside>
+</div>
+<footer>
+  <a href="https://www.misteredizioni.it/">MisterEdizioni Multimedia</a><span class="sep2">::</span><a href="../contatti/">Contatti</a>
+</footer>
+</body>
+</html>
